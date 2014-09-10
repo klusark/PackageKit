@@ -282,6 +282,21 @@ pk_alpm_search_is_application (alpm_pkg_t *pkg) {
 	return FALSE;
 }
 
+static gboolean
+pk_alpm_search_is_downloaded (alpm_pkg_t *pkg) {
+	_cleanup_free_ gchar *filename = NULL;
+
+	filename = g_strconcat ("/var/cache/pacman/pkg/",
+				alpm_pkg_get_name (pkg),
+				"-",
+				alpm_pkg_get_version (pkg),
+				"-",
+				alpm_pkg_get_arch (pkg),
+				".pkg.tar.xz",
+				NULL);
+	return g_file_test (filename, G_FILE_TEST_EXISTS);
+}
+
 static void
 pk_backend_search_db (PkBackendJob *job, alpm_db_t *db, MatchFunc match,
 		      const alpm_list_t *patterns, PkBitfield filters)
@@ -313,6 +328,14 @@ pk_backend_search_db (PkBackendJob *job, alpm_db_t *db, MatchFunc match,
 
 		/* don't want applications */
 		if (pk_bitfield_contain (filters, PK_FILTER_ENUM_NOT_APPLICATION) && pk_alpm_search_is_application (i->data))
+			continue;
+
+		/* want downloaded packages */
+		if (pk_bitfield_contain (filters, PK_FILTER_ENUM_DOWNLOADED) && !pk_alpm_search_is_downloaded (i->data))
+			continue;
+
+		/* don't want downloaded packages */
+		if (pk_bitfield_contain (filters, PK_FILTER_ENUM_NOT_DOWNLOADED) && pk_alpm_search_is_downloaded (i->data))
 			continue;
 
 		if (db == priv->localdb) {
